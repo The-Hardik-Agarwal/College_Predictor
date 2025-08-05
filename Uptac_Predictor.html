@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>College Predictor by Hardik Agarwal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+    /* Light Mode (default) */
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #111827;
+      padding: 20px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    h2 {
+      text-align: center;
+      color: #065f46;
+      margin-bottom: 30px;
+      text-shadow: none;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+    label {
+      font-weight: bold;
+    }
+    input[type="number"], select {
+      border-radius: 4px;
+      border: 1px solid #065f46;
+      padding: 6px;
+      margin: 6px 0 12px;
+      width: 220px;
+      background-color: #fff;
+      color: #111827;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+    select[multiple] {
+      height: 100px;
+    }
+    button {
+      background-color: #22c55e;
+      border: none;
+      color: #111;
+      padding: 10px 16px;
+      margin-right: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 0 6px #22c55e;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    button:hover {
+      background-color: #16a34a;
+      color: #fff;
+    }
+    .filter-group {
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 13px;
+      background-color: #fff;
+      color: #111827;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    th, td {
+      border: 1px solid #22c55e;
+      padding: 6px 10px;
+      text-align: left;
+      vertical-align: top;
+      transition: border-color 0.3s;
+    }
+    th {
+      background-color: #4ade80;
+      color: #064e3b;
+      text-transform: uppercase;
+    }
+    #result h3 {
+      margin-bottom: 8px;
+      color: #16a34a;
+    }
+    /* Dark Mode */
+    body.dark-mode {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #eee;
+    }
+    body.dark-mode h2 {
+      color: #4ade80;
+      text-shadow: 0 0 8px #4ade80;
+    }
+    body.dark-mode input[type="number"], body.dark-mode select {
+      background-color: #112;
+      color: #eee;
+      border-color: #4ade80;
+    }
+    body.dark-mode table {
+      background-color: #1e293b;
+      color: #d1d5db;
+    }
+    body.dark-mode th, body.dark-mode td {
+      border-color: #4ade80;
+    }
+    body.dark-mode th {
+      background-color: #065f46;
+      color: #a7f3d0;
+    }
+    body.dark-mode #result h3 {
+      color: #a7f3d0;
+    }
+    body.dark-mode button {
+      background-color: #22c55e;
+      color: #111;
+      box-shadow: 0 0 6px #22c55e;
+    }
+    body.dark-mode button:hover {
+      background-color: #16a34a;
+      color: #fff;
+    }
+    /* Toggle switch styles */
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-bottom: 15px;
+      gap: 10px;
+      font-weight: bold;
+      user-select: none;
+    }
+    .toggle-switch input[type="checkbox"] {
+      width: 40px;
+      height: 20px;
+      position: relative;
+      appearance: none;
+      background: #cbd5e1;
+      outline: none;
+      border-radius: 20px;
+      transition: background 0.3s;
+      cursor: pointer;
+    }
+    .toggle-switch input[type="checkbox"]:checked {
+      background: #22c55e;
+    }
+    .toggle-switch input[type="checkbox"]::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      top: 1px;
+      left: 1px;
+      background: #fff;
+      transition: 0.3s;
+    }
+    .toggle-switch input[type="checkbox"]:checked::before {
+      left: 21px;
+    }
+  </style>
+</head>
+<body>
+  <h2>College Predictor by Hardik Agarwal</h2>
+
+  <div class="toggle-switch">
+    <label for="modeToggle">Dark Mode</label>
+    <input type="checkbox" id="modeToggle" aria-label="Toggle dark mode" />
+  </div>
+
+  <label>Select Excel File (.xlsx):</label>
+  <input type="file" id="xlsxFile" accept=".xlsx" /><br />
+
+  <label>Enter Your Rank:</label>
+  <input type="number" id="rank" min="1" /><br />
+
+  <div id="filtersContainer"></div>
+
+  <button onclick="predictColleges()">Predict Colleges</button>
+  <button onclick="downloadPDF()">Download PDF (1 to 110% of rank)</button>
+
+  <div id="result"></div>
+
+  <script>
+    let data = [];
+    let headers = [];
+    let closingRankKey = "";
+
+    function normalize(str) {
+      return str.toLowerCase().replace(/\s|_/g, "");
+    }
+
+    document.getElementById('modeToggle').addEventListener('change', function () {
+      if (this.checked) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+    });
+
+    document.getElementById('xlsxFile').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        const workbook = XLSX.read(e.target.result, { type: 'binary' });
+        const firstSheet = workbook.SheetNames[0];
+        const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+
+        if (sheetData.length === 0) {
+          alert("Excel file is empty.");
+          return;
+        }
+
+        data = sheetData;
+        headers = Object.keys(data[0]);
+
+        closingRankKey = "";
+        for (const h of headers) {
+          if (normalize(h) === "closingrank") {
+            closingRankKey = h;
+            break;
+          }
+        }
+        if (!closingRankKey) {
+          alert("ERROR: 'Closing Rank' column not found in Excel sheet.");
+          return;
+        }
+
+        createDynamicFilters();
+        alert("Excel file loaded successfully!");
+      };
+
+      reader.readAsBinaryString(file);
+    });
+
+    function createDynamicFilters() {
+      const container = document.getElementById('filtersContainer');
+      container.innerHTML = "";
+
+      headers.forEach(header => {
+        const nHeader = normalize(header);
+        if (nHeader === "openingrank" || nHeader === "closingrank") return;
+
+        const group = document.createElement('div');
+        group.className = "filter-group";
+
+        const label = document.createElement('label');
+        label.textContent = `Select ${header}: `;
+        group.appendChild(label);
+
+        const selectAll = document.createElement('input');
+        selectAll.type = 'checkbox';
+        selectAll.id = `selectAll-${header}`;
+        selectAll.style.marginLeft = "10px";
+        selectAll.addEventListener('change', () => toggleSelectAll(header));
+        group.appendChild(selectAll);
+
+        const select = document.createElement('select');
+        select.id = `filter-${header}`;
+        select.multiple = true;
+
+        const uniqueValues = [...new Set(data.map(row => row[header]))]
+          .filter(v => v !== "" && v !== null && v !== undefined)
+          .sort();
+
+        uniqueValues.forEach(val => {
+          const option = document.createElement('option');
+          option.value = val;
+          option.textContent = val;
+          select.appendChild(option);
+        });
+
+        group.appendChild(document.createElement('br'));
+        group.appendChild(select);
+
+        container.appendChild(group);
+      });
+    }
+
+    function toggleSelectAll(header) {
+      const select = document.getElementById(`filter-${header}`);
+      const checked = document.getElementById(`selectAll-${header}`).checked;
+      for (const option of select.options) {
+        option.selected = checked;
+      }
+    }
+
+    function parseRank(value) {
+      if (typeof value === "number") return value;
+      if (typeof value === "string") {
+        return parseInt(value.replace(/,/g, ""));
+      }
+      return NaN;
+    }
+
+    function predictColleges() {
+      const rankInput = document.getElementById('rank').value;
+      const userRank = parseInt(rankInput);
+
+      if (!userRank || isNaN(userRank) || userRank <= 0) {
+        alert("Please enter a valid positive rank.");
+        return;
+      }
+      if (!data.length) {
+        alert("Please upload a valid Excel file first.");
+        return;
+      }
+      if (!closingRankKey) {
+        alert("Closing Rank column not found.");
+        return;
+      }
+
+      let filtered = [...data];
+
+      headers.forEach(header => {
+        const nHeader = normalize(header);
+        if (nHeader === "openingrank" || nHeader === "closingrank") return;
+
+        const selectElem = document.getElementById(`filter-${header}`);
+        if (!selectElem) return;
+
+        const selectedOptions = Array.from(selectElem.selectedOptions).map(opt => opt.value);
+        if (selectedOptions.length > 0) {
+          filtered = filtered.filter(row => selectedOptions.includes(row[header]));
+        }
+      });
+
+      filtered = filtered.filter(row => {
+        const cr = parseRank(row[closingRankKey]);
+        return !isNaN(cr) && cr >= userRank;
+      });
+
+      filtered.sort((a, b) => parseRank(a[closingRankKey]) - parseRank(b[closingRankKey]));
+
+      window.predictedChoices = filtered;
+      displayTable(filtered);
+    }
+
+    function displayTable(dataToShow) {
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = `<h3>${dataToShow.length} choices found</h3>`;
+
+      if (!dataToShow.length) {
+        resultDiv.innerHTML += "<p>No colleges found for the given filters and rank.</p>";
+        return;
+      }
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      dataToShow.forEach(row => {
+        const tr = document.createElement('tr');
+        headers.forEach(header => {
+          const td = document.createElement('td');
+          td.textContent = row[header];
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+
+      resultDiv.appendChild(table);
+    }
+
+    async function downloadPDF() {
+      if (!window.predictedChoices || !window.predictedChoices.length) {
+        alert("Please run prediction first.");
+        return;
+      }
+
+      const rankInput = document.getElementById('rank').value;
+      const userRank = parseInt(rankInput);
+      if (!userRank || isNaN(userRank) || userRank <= 0) {
+        alert("Please enter a valid positive rank.");
+        return;
+      }
+
+      const maxRank = Math.floor(userRank * 1.1);
+
+      let filteredPDF = [...data];
+
+      headers.forEach(header => {
+        const nHeader = normalize(header);
+        if (nHeader === "openingrank" || nHeader === "closingrank") return;
+
+        const selectElem = document.getElementById(`filter-${header}`);
+        if (!selectElem) return;
+
+        const selectedOptions = Array.from(selectElem.selectedOptions).map(opt => opt.value);
+        if (selectedOptions.length > 0) {
+          filteredPDF = filteredPDF.filter(row => selectedOptions.includes(row[header]));
+        }
+      });
+
+      filteredPDF = filteredPDF.filter(row => {
+        const cr = parseRank(row[closingRankKey]);
+        return !isNaN(cr) && cr >= 1 && cr <= maxRank;
+      });
+
+      filteredPDF.sort((a, b) => parseRank(a[closingRankKey]) - parseRank(b[closingRankKey]));
+
+      if (!filteredPDF.length) {
+        alert("No choices found in 1 to 110% rank range for PDF with selected filters.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 40;
+      const startX = margin;
+      let y = margin;
+
+      const fontSize = 6;
+      const lineHeight = fontSize + 2;
+      const cellPadding = 2;
+
+      doc.setFontSize(fontSize);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text("Predicted College Choices (1 to 110% of your rank) by Hardik Agarwal", startX, y);
+      y += lineHeight * 2;
+
+      const totalWidth = pageWidth - 2 * margin;
+      const colWidths = [];
+
+      headers.forEach((h, i) => {
+        if (i === 0) colWidths.push(totalWidth * 0.3);
+        else if (i === 1) colWidths.push(totalWidth * 0.25);
+        else {
+          const rem = totalWidth * 0.45;
+          const otherCols = headers.length - 2;
+          colWidths.push(rem / otherCols);
+        }
+      });
+
+      doc.setFont(undefined, 'bold');
+      let x = startX;
+      headers.forEach((header, i) => {
+        doc.text(String(header).toUpperCase(), x + cellPadding, y);
+        x += colWidths[i];
+      });
+      doc.setFont(undefined, 'normal');
+      y += lineHeight;
+
+      doc.setLineWidth(0.5);
+      doc.line(startX, y - 6, startX + totalWidth, y - 6);
+
+      x = startX;
+      for (let i = 0; i <= headers.length; i++) {
+        doc.line(x, y - lineHeight, x, y);
+        if (i < headers.length) x += colWidths[i];
+      }
+
+      function splitText(text, width) {
+        return doc.splitTextToSize(text, width - 2 * cellPadding);
+      }
+
+      for (const row of filteredPDF) {
+        const colLines = headers.map((h, i) => splitText(String(row[h] || ""), colWidths[i]));
+        const maxLines = Math.max(...colLines.map(lines => lines.length));
+
+        if (y + lineHeight * maxLines + cellPadding > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+
+          doc.setFont(undefined, 'bold');
+          let x = startX;
+          headers.forEach((header, i) => {
+            doc.text(String(header).toUpperCase(), x + cellPadding, y);
+            x += colWidths[i];
+          });
+          doc.setFont(undefined, 'normal');
+          y += lineHeight;
+          doc.line(startX, y - 6, startX + totalWidth, y - 6);
+
+          x = startX;
+          for (let i = 0; i <= headers.length; i++) {
+            doc.line(x, y - lineHeight, x, y);
+            if (i < headers.length) x += colWidths[i];
+          }
+        }
+
+        for (let lineIndex = 0; lineIndex < maxLines; lineIndex++) {
+          let x = startX;
+          headers.forEach((h, colIndex) => {
+            const lines = colLines[colIndex];
+            const text = lines[lineIndex] || "";
+            doc.text(text, x + cellPadding, y + lineHeight * lineIndex);
+            x += colWidths[colIndex];
+          });
+        }
+
+        let xLine = startX;
+        const rowHeight = lineHeight * maxLines + cellPadding * 2;
+        for (let i = 0; i <= headers.length; i++) {
+          doc.line(xLine, y - cellPadding, xLine, y + rowHeight - cellPadding);
+          if (i < headers.length) xLine += colWidths[i];
+        }
+        doc.line(startX, y + rowHeight - cellPadding, startX + totalWidth, y + rowHeight - cellPadding);
+
+        y += rowHeight;
+      }
+
+      doc.save("predicted_choices.pdf");
+    }
+  </script>
+</body>
+</html>
